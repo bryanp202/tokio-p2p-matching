@@ -6,7 +6,7 @@ use redis::{AsyncCommands, PushInfo, PushKind, from_redis_value};
 use tokio::{net::UdpSocket, sync::mpsc::UnboundedReceiver};
 
 const MATCHMAKING_SERVER_VERSION: &[u8] = "0.1.0".as_bytes();
-const UDP_SOCKET_ADDR: &str = "127.0.0.1:8000";
+const UDP_SOCKET_ADDR: &str = "0.0.0.0:8000";
 const MATCHMAKING_QUEUE_NAME: &str = "players:queue";
 
 const TIME_OUT: Duration = std::time::Duration::from_secs(30);
@@ -30,13 +30,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .expect("Failed to bind socket");
     let udp_socket = Arc::new(udp_socket);
 
-    let redis_con = redis_client.get_multiplexed_async_connection().await?;
+    let mut redis_con = redis_client.get_multiplexed_async_connection().await?;
+    let _: () = redis_con.flushall().await.expect("Failed to flush all");
     tokio::spawn(matcher::matcher(redis_con));
 
     let mut buf = [0u8; 1024];
+    println!("Server running...");
 
     loop {
-        let (len, src_addr) = udp_socket.recv_from(&mut buf).await.unwrap();
+        let Ok((len, src_addr)) = udp_socket.recv_from(&mut buf).await else {
+            continue;
+        };
 
         let (tx, pubsub) = tokio::sync::mpsc::unbounded_channel();
         let redis_config = redis::AsyncConnectionConfig::new().set_push_sender(tx);

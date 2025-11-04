@@ -6,10 +6,10 @@ services:
       - "6379:6379"
 
   web:
-    build: .
+    image: bryanp24/rust_p2pmatchmaking:latest
     container_name: rustp2p_matchmaking
     ports:
-      - "8000:8000"
+      - "8000:8000/udp"
     depends_on:
       - redis
     environment:
